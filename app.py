@@ -252,14 +252,13 @@ with tab_photomap:
         # Determine page dimensions
         ext = base_doc.name.rsplit(".", 1)[-1].lower() if "." in base_doc.name else ""
         if ext == "pdf":
-            doc = fitz.open(stream=base_bytes, filetype="pdf")
-            page = doc[0]
-            page_width = page.rect.width
-            page_height = page.rect.height
-            doc.close()
+            with fitz.open(stream=base_bytes, filetype="pdf") as doc:
+                page = doc[0]
+                page_width = page.rect.width
+                page_height = page.rect.height
         elif ext in ("png", "jpg", "jpeg"):
-            img = Image.open(BytesIO(base_bytes))
-            page_width, page_height = img.size
+            with Image.open(BytesIO(base_bytes)) as img:
+                page_width, page_height = img.size
         else:
             st.error(f"Unsupported file type: .{ext}")
             st.stop()
