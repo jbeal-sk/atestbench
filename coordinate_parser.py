@@ -64,7 +64,7 @@ def dms_to_decimal(
 # Matches: 74° 2'53.73"W  or  40°42'51.93"N  (degree symbol variant)
 _DMS_SYMBOL_RE = re.compile(
     r"""^\s*
-    (-?\d+(?:\.\d+)?)\s*[°]\s*       # degrees with ° symbol
+    (-?\d+)\s*[°]\s*                  # integer degrees with ° symbol
     (\d+(?:\.\d+)?)\s*[''′]\s*       # minutes with ' or ′
     (\d+(?:\.\d+)?)\s*["″"]\s*      # seconds with " or ″
     ([NSEWnsew])?\s*$                 # optional direction
@@ -75,7 +75,7 @@ _DMS_SYMBOL_RE = re.compile(
 # Matches: 74:02:53.73W  (colon-separated)
 _DMS_COLON_RE = re.compile(
     r"""^\s*
-    (-?\d+(?:\.\d+)?)\s*:\s*          # degrees
+    (-?\d+)\s*:\s*                    # integer degrees
     (\d+(?:\.\d+)?)\s*:\s*            # minutes
     (\d+(?:\.\d+)?)\s*                # seconds
     ([NSEWnsew])?\s*$                 # optional direction
@@ -86,7 +86,7 @@ _DMS_COLON_RE = re.compile(
 # Matches: 74 2 53.73 W  (space-separated)
 _DMS_SPACE_RE = re.compile(
     r"""^\s*
-    (-?\d+(?:\.\d+)?)\s+              # degrees
+    (-?\d+)\s+                        # integer degrees
     (\d+(?:\.\d+)?)\s+                # minutes
     (\d+(?:\.\d+)?)\s*                # seconds
     ([NSEWnsew])?\s*$                 # optional direction

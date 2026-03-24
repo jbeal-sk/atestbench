@@ -212,6 +212,7 @@ with tab_photomap:
 
     corners_input = {}
     parse_errors: list[str] = []
+    parsed_values: dict[str, tuple[float, float]] = {}
     for key in provided_keys:
         label = corner_labels[key]
         col1, col2 = st.columns(2)
@@ -228,19 +229,23 @@ with tab_photomap:
                 key=f"lon_{key}",
             )
 
+        lat_ok, lon_ok = True, True
         try:
             lat = parse_coordinate(lat_str, "latitude")
         except ValueError as e:
             parse_errors.append(f"{label} Latitude: {e}")
             lat = 0.0
+            lat_ok = False
 
         try:
             lon = parse_coordinate(lon_str, "longitude")
         except ValueError as e:
             parse_errors.append(f"{label} Longitude: {e}")
             lon = 0.0
+            lon_ok = False
 
-        st.caption(f"↳ Parsed: {lat:.7f}, {lon:.7f}")
+        if lat_ok and lon_ok:
+            st.caption(f"↳ Parsed: {lat:.7f}, {lon:.7f}")
         corners_input[key] = (lat, lon)
 
     if parse_errors:
