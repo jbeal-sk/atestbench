@@ -143,7 +143,7 @@ def stamp_image(image_bytes: bytes, stamps: list[dict]) -> bytes:
         overlay_draw.rectangle(bg_rect, fill=_IMG_BG_COLOR)
 
         # Draw text on the overlay
-        overlay_draw.text((x, y), code, fill=_IMG_TEXT_COLOR + (255,), font=font)
+        overlay_draw.text((x, y), code, fill=(*_IMG_TEXT_COLOR, 255), font=font)
 
     # Composite overlay onto the original image
     image = Image.alpha_composite(image, overlay)
