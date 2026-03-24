@@ -67,6 +67,14 @@ Upload the document that represents your geographic area:
 - **PDF** — Site maps, survey plats, engineering drawings. Codes are stamped as vector text (scalable, searchable).
 - **PNG / JPG** — Aerial photos, satellite imagery, scanned maps. Codes are stamped as raster text.
 
+#### Step 2.5 — Automatic Orientation Detection (Optional)
+
+After uploading the document, the app automatically detects its orientation:
+- **Landscape**: Width > Height — displays "Detected: LANDSCAPE (2400 × 1600 px)"
+- **Portrait**: Height > Width — displays "Detected: PORTRAIT (1600 × 2000 px)"
+
+This detection helps validate that your coordinate entries match the document's orientation.
+
 #### Step 3 — Define Geographic Extent
 
 Select which 3 of the 4 corners you will provide:
@@ -75,7 +83,38 @@ Select which 3 of the 4 corners you will provide:
 - Top-Left, Bottom-Left, Bottom-Right
 - Top-Right, Bottom-Left, Bottom-Right
 
-Enter the latitude and longitude for each selected corner. The app computes the 4th corner using the parallelogram property (D = A + C - B) and displays it for verification.
+**Coordinate Input Formats:** The app accepts latitude/longitude in multiple formats:
+
+**Decimal Degrees** (most common):
+- Format: `-74.04798056` or `40.7144`
+- Precision: supports 6-7 decimal places
+- Examples:
+  - Longitude: `-74.04798056`, `-120.123456`, `74.047980`
+  - Latitude: `40.71442500`, `-33.8688`, `48.856613`
+
+**Degrees-Minutes-Seconds (DMS)**:
+- Format: `74° 2'53.73"W` or `74:02:53.73W`
+- Compass directions: N/S for latitude, E/W for longitude
+- Examples:
+  - `40°42'51.93"N` → 40.71442500
+  - `74° 2'53.73"W` → -74.04798056
+  - `74:02:53.73W` → -74.04798056
+  - `40 42 51.93 N` → 40.71442500
+
+The app displays the parsed decimal value back to you before confirmation, so you can verify the conversion is correct.
+
+#### Step 3.5 — Verify Computed 4th Corner & Orientation
+
+After entering 3 corners, the app computes the 4th corner using the parallelogram property (D = A + C - B) and displays it for verification.
+
+**If orientation mismatch is detected**, the app will warn you:
+> ⚠️ **Orientation Mismatch**: PDF is landscape but your coordinates suggest portrait. Please verify corners.
+
+This typically means:
+- Your geographic bounding box dimensions don't match the document's orientation
+- For example, a landscape PDF with portrait coordinates (taller than wide geo area)
+
+You can review your corner entries and adjust, or click **"Proceed anyway"** to override the warning.
 
 **Corner labeling convention:**
 ```
@@ -146,12 +185,38 @@ A point-in-polygon test determines whether each photo's GPS coordinates fall wit
 | Aspect | PDF | Image |
 |--------|-----|-------|
 | Text type | Vector (scalable) | Raster (fixed resolution) |
+| Text color | **Red** on white background | Dark text on white background |
 | Text searchability | Yes | No |
 | File size impact | Minimal increase | Moderate increase |
 | Quality at zoom | Perfect at any zoom | Degrades at high zoom |
 | Library | PyMuPDF (fitz) | Pillow |
+| Orientation handling | Automatic detection with warnings | Works with any orientation |
 
-**Recommendation:** Use PDF when available. Vector text remains crisp at any zoom level and is searchable/selectable.
+**Stamp Appearance:**
+- **PDF**: Red text (high visibility) on white background, vector font (Helvetica-Bold, 12pt)
+- **Image**: Dark text on white background, raster rendering
+
+**Recommendation:** Use PDF when available. Vector text remains crisp at any zoom level and is searchable/selectable. Red text on PDF makes stamps highly visible.
+
+### Orientation Detection & Validation
+
+The app automatically detects PDF page orientation (portrait vs landscape) and validates that user-entered geographic coordinates are compatible:
+
+- **Landscape PDF** expects geographic coordinates to span a wider area (lon_range ≥ lat_range)
+- **Portrait PDF** expects geographic coordinates to span a taller area (lat_range ≥ lon_range)
+- If a mismatch is detected, the app warns you but allows proceeding with an override checkbox
+
+This prevents common errors where stamps end up in the wrong locations due to orientation confusion.
+
+---
+
+## Enhanced Features & Improvements
+
+### Bug Fixes & Enhancements (Phase 6-7)
+- **Red stamp text on PDFs** for better visibility and contrast
+- **Flexible coordinate input** supporting both decimal degrees (6-7 places) and DMS format
+- **Automatic PDF orientation detection** with user warnings for mismatches
+- **Coordinate validation** ensuring geographic bounding box matches document orientation
 
 ---
 
@@ -173,16 +238,18 @@ atestbench/
 ├── kml_generator.py                # KML file generation
 ├── code_assigner.py                # 2-digit alphanumeric code assignment
 ├── markdown_report.py              # Markdown report generation
-├── affine_transform.py             # Geographic-to-page coordinate mapping
-├── document_stamper.py             # PDF and image text stamping
+├── affine_transform.py             # Geographic-to-page coordinate mapping + validation
+├── document_stamper.py             # PDF and image text stamping (red text on PDFs)
+├── coordinate_parser.py            # Flexible coordinate format parsing (DMS, decimal)
 ├── requirements.txt                # Python dependencies
 ├── README.md                       # Project overview and setup
 ├── README_PHOTOMAP.md              # This file — Photo Map feature documentation
-├── AGENT_README.md                 # Implementation agent breakdown
+├── AGENT_README.md                 # Implementation agent breakdown with bug-fix agents
 └── tests/
     ├── __init__.py
-    ├── test_affine_transform.py    # Affine transform unit tests
+    ├── test_affine_transform.py    # Affine transform and validation unit tests
     ├── test_code_assigner.py       # Code assignment unit tests
+    ├── test_coordinate_parser.py   # Coordinate format parsing unit tests
     ├── test_document_stamper.py    # Document stamper unit tests
     ├── test_gps_extractor.py       # GPS/metadata extraction unit tests
     └── test_markdown_report.py     # Markdown report unit tests
