@@ -168,15 +168,22 @@ A point-in-polygon test determines whether each photo's GPS coordinates fall wit
 
 ```
 atestbench/
-├── app.py                 # Streamlit UI with KML Export and Photo Map tabs
-├── gps_extractor.py       # EXIF GPS + DateTime extraction
-├── kml_generator.py       # KML file generation (unchanged)
-├── code_assigner.py       # 2-digit alphanumeric code assignment
-├── markdown_report.py     # Markdown report generation
-├── affine_transform.py    # Geographic-to-page coordinate mapping
-├── document_stamper.py    # PDF and image text stamping
-├── requirements.txt       # Python dependencies
-├── README.md              # Original README
-├── README_PHOTOMAP.md     # This file
-└── AGENT_README.md        # Implementation agent breakdown
+├── app.py                          # Streamlit UI with KML Export and Photo Map tabs
+├── gps_extractor.py                # EXIF GPS + DateTime extraction
+├── kml_generator.py                # KML file generation
+├── code_assigner.py                # 2-digit alphanumeric code assignment
+├── markdown_report.py              # Markdown report generation
+├── affine_transform.py             # Geographic-to-page coordinate mapping
+├── document_stamper.py             # PDF and image text stamping
+├── requirements.txt                # Python dependencies
+├── README.md                       # Project overview and setup
+├── README_PHOTOMAP.md              # This file — Photo Map feature documentation
+├── AGENT_README.md                 # Implementation agent breakdown
+└── tests/
+    ├── __init__.py
+    ├── test_affine_transform.py    # Affine transform unit tests
+    ├── test_code_assigner.py       # Code assignment unit tests
+    ├── test_document_stamper.py    # Document stamper unit tests
+    ├── test_gps_extractor.py       # GPS/metadata extraction unit tests
+    └── test_markdown_report.py     # Markdown report unit tests
 ```
