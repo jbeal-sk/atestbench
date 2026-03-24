@@ -15,6 +15,7 @@ from affine_transform import (
     is_within_bounds,
 )
 from document_stamper import stamp_document
+from coordinate_parser import parse_coordinate
 
 st.set_page_config(page_title="Photo GPS → Google Earth KML", page_icon="🌍")
 
@@ -204,31 +205,48 @@ with tab_photomap:
 
     corner_labels = {"TL": "Top-Left", "TR": "Top-Right", "BL": "Bottom-Left", "BR": "Bottom-Right"}
 
+    st.caption(
+        "Enter coordinates as decimal degrees (e.g. ``-74.047980``) "
+        "or DMS (e.g. ``74°2'53.73\"W``, ``74:02:53.73W``, ``74 2 53.73 W``)."
+    )
+
     corners_input = {}
+    parse_errors: list[str] = []
     for key in provided_keys:
         label = corner_labels[key]
         col1, col2 = st.columns(2)
         with col1:
-            lat = st.number_input(
+            lat_str = st.text_input(
                 f"{label} Latitude",
-                min_value=-90.0,
-                max_value=90.0,
-                value=0.0,
-                step=0.000001,
-                format="%.6f",
+                value="0.0",
                 key=f"lat_{key}",
             )
         with col2:
-            lon = st.number_input(
+            lon_str = st.text_input(
                 f"{label} Longitude",
-                min_value=-180.0,
-                max_value=180.0,
-                value=0.0,
-                step=0.000001,
-                format="%.6f",
+                value="0.0",
                 key=f"lon_{key}",
             )
+
+        try:
+            lat = parse_coordinate(lat_str, "latitude")
+        except ValueError as e:
+            parse_errors.append(f"{label} Latitude: {e}")
+            lat = 0.0
+
+        try:
+            lon = parse_coordinate(lon_str, "longitude")
+        except ValueError as e:
+            parse_errors.append(f"{label} Longitude: {e}")
+            lon = 0.0
+
+        st.caption(f"↳ Parsed: {lat:.7f}, {lon:.7f}")
         corners_input[key] = (lat, lon)
+
+    if parse_errors:
+        for err in parse_errors:
+            st.error(err)
+        st.stop()
 
     # Compute 4th corner
     try:
