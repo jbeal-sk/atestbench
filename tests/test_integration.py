@@ -235,6 +235,85 @@ class TestFullWorkflowKml:
         assert "b.jpg" in kml
 
 
+# ── Real-World Coordinates ────────────────────────────────────────────
+
+
+class TestRealWorldCoordinates:
+    """Integration tests using real-world GPS coordinates for PDF stamping."""
+
+    def test_real_coordinates_tl_tr_br_pdf_workflow(self):
+        """Full PDF workflow with real-world TL/TR/BR coordinates.
+
+        Corners provided:
+            TL: (40.29913333, -74.04798056)
+            TR: (40.30365278, -74.03135556)
+            BR: (40.29444167, -74.02712222)
+        Missing: BL (computed via parallelogram property)
+        """
+        corners_input = {
+            "TL": (40.29913333, -74.04798056),
+            "TR": (40.30365278, -74.03135556),
+            "BR": (40.29444167, -74.02712222),
+        }
+        missing_key = "BL"
+
+        # Compute 4th corner
+        fourth = compute_fourth_corner(corners_input, missing_key)
+        assert fourth[0] == pytest.approx(40.28992222, abs=1e-6)
+        assert fourth[1] == pytest.approx(-74.04374722, abs=1e-6)
+
+        all_corners = dict(corners_input)
+        all_corners[missing_key] = fourth
+
+        # Build affine transform for a standard PDF page
+        page_width, page_height = 612, 792
+        page_corner_map = {
+            "TL": (0.0, 0.0),
+            "TR": (page_width, 0.0),
+            "BL": (0.0, page_height),
+            "BR": (page_width, page_height),
+        }
+
+        provided_keys = ("TL", "TR", "BR")
+        geo_points = [all_corners[k] for k in provided_keys]
+        page_points = [page_corner_map[k] for k in provided_keys]
+
+        affine_matrix = build_affine_transform(geo_points, page_points)
+
+        # Verify all 4 corners map back correctly
+        for k in ("TL", "TR", "BL", "BR"):
+            lat, lon = all_corners[k]
+            x, y = geo_to_page(lat, lon, affine_matrix)
+            expected_x, expected_y = page_corner_map[k]
+            assert x == pytest.approx(expected_x, abs=0.5)
+            assert y == pytest.approx(expected_y, abs=0.5)
+
+        # Bounds checking — center is inside, far point is outside
+        bounds_corners = [
+            all_corners["TL"], all_corners["TR"],
+            all_corners["BR"], all_corners["BL"],
+        ]
+        center_lat = sum(c[0] for c in bounds_corners) / 4
+        center_lon = sum(c[1] for c in bounds_corners) / 4
+        assert is_within_bounds(center_lat, center_lon, bounds_corners) is True
+        assert is_within_bounds(0.0, 0.0, bounds_corners) is False
+
+        # Stamp a PDF with a photo at the center
+        cx, cy = geo_to_page(center_lat, center_lon, affine_matrix)
+        assert 0 < cx < page_width
+        assert 0 < cy < page_height
+
+        stamps = [{"code": "A1", "x": cx, "y": cy}]
+        pdf_bytes = _make_pdf_bytes(width=page_width, height=page_height)
+        output_bytes, output_name = stamp_document(pdf_bytes, "site_map.pdf", stamps)
+
+        assert output_name == "site_map_stamped.pdf"
+        doc = fitz.open(stream=output_bytes, filetype="pdf")
+        text = doc[0].get_text()
+        doc.close()
+        assert "A1" in text
+
+
 # ── Edge Cases: Boundary Conditions ──────────────────────────────────
 
 
