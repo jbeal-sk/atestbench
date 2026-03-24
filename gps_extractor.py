@@ -4,6 +4,10 @@ from PIL.ExifTags import GPSTAGS
 # Tag ID for the GPS IFD
 _GPS_IFD_TAG = 34853
 
+# EXIF tag IDs for date/time
+_DATETIME_ORIGINAL_TAG = 36867
+_DATETIME_TAG = 306
+
 
 def _dms_to_decimal(dms, ref):
     """Convert degrees/minutes/seconds to decimal degrees."""
@@ -58,42 +62,57 @@ def extract_gps(image_file):
     return {"lat": lat, "lon": lon}
 
 
+def extract_metadata(image_file):
+    """
+    Extract GPS coordinates and capture date/time from an image file's EXIF metadata.
+
+    Args:
+        image_file: A file-like object (e.g. from st.file_uploader).
+
+    Returns:
+        A dict with keys 'lat' (float|None), 'lon' (float|None),
+        and 'datetime' (str|None).
+    """
+    gps = extract_gps(image_file)
+
+    datetime_str = None
+    try:
+        image_file.seek(0)
+        image = Image.open(image_file)
+        exif_data = image.getexif()
+
+        if exif_data:
+            # Try DateTimeOriginal first (tag 36867), fall back to DateTime (tag 306)
+            datetime_str = exif_data.get(_DATETIME_ORIGINAL_TAG)
+            if datetime_str is None:
+                datetime_str = exif_data.get(_DATETIME_TAG)
+    except (UnidentifiedImageError, OSError, KeyError, TypeError, ValueError):
+        pass
+
+    return {"lat": gps["lat"], "lon": gps["lon"], "datetime": datetime_str}
+
+
 def extract_gps_from_files(uploaded_files):
     """
-    Extract GPS coordinates from a list of uploaded image files.
+    Extract GPS coordinates and capture date/time from a list of uploaded image files.
 
     Args:
         uploaded_files: List of file-like objects from st.file_uploader.
 
     Returns:
-        A list of dicts: [{"name": "photo.jpg", "lat": 40.7128, "lon": -74.0060}, ...]
-        lat/lon are None when GPS data is not available.
+        A list of dicts: [{"name": "photo.jpg", "lat": 40.7128, "lon": -74.0060,
+                           "datetime": "2024:03:15 14:30:22"}, ...]
+        lat/lon/datetime are None when the respective data is not available.
     """
     results = []
     for f in uploaded_files:
-        coords = extract_gps(f)
-        results.append({"name": f.name, "lat": coords["lat"], "lon": coords["lon"]})
-        # Reset file pointer so it can be re-read if needed
-        f.seek(0)
-    return results
-
-
-
-def extract_gps_from_files(uploaded_files):
-    """
-    Extract GPS coordinates from a list of uploaded image files.
-
-    Args:
-        uploaded_files: List of file-like objects from st.file_uploader.
-
-    Returns:
-        A list of dicts: [{"name": "photo.jpg", "lat": 40.7128, "lon": -74.0060}, ...]
-        lat/lon are None when GPS data is not available.
-    """
-    results = []
-    for f in uploaded_files:
-        coords = extract_gps(f)
-        results.append({"name": f.name, "lat": coords["lat"], "lon": coords["lon"]})
+        metadata = extract_metadata(f)
+        results.append({
+            "name": f.name,
+            "lat": metadata["lat"],
+            "lon": metadata["lon"],
+            "datetime": metadata["datetime"],
+        })
         # Reset file pointer so it can be re-read if needed
         f.seek(0)
     return results
