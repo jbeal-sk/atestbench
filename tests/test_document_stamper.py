@@ -105,6 +105,25 @@ class TestStampPdf:
         assert "Original Content" in text
         assert "A1" in text
 
+    def test_stamp_text_is_red(self):
+        """Stamped code text is rendered in red."""
+        pdf = _make_pdf_bytes()
+        stamps = [{"code": "A1", "x": 100.0, "y": 100.0}]
+        result = stamp_pdf(pdf, stamps)
+        doc = fitz.open(stream=result, filetype="pdf")
+        page = doc[0]
+        text_dict = page.get_text("dict")
+        colors = set()
+        for block in text_dict["blocks"]:
+            if "lines" in block:
+                for line in block["lines"]:
+                    for span in line["spans"]:
+                        if span["text"].strip():
+                            colors.add(span["color"])
+        doc.close()
+        # 0xff0000 is red in PyMuPDF's integer color representation
+        assert 0xFF0000 in colors
+
 
 # ── stamp_image ──────────────────────────────────────────────────────
 

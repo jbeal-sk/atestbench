@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 _PDF_FONT = "Helvetica-Bold"
 _PDF_FONTSIZE = 12
-_PDF_TEXT_COLOR = (0, 0, 0)  # black
+_PDF_TEXT_COLOR = (1, 0, 0)  # red
 _PDF_BG_COLOR = (1, 1, 1)  # white
 _PDF_BG_PADDING = 2  # points of padding around text
 
