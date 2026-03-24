@@ -19,6 +19,10 @@ def generate_kml(photo_data):
             point = kml.newpoint(name=photo["name"])
             # simplekml uses (lon, lat) order
             point.coords = [(photo["lon"], photo["lat"])]
-            point.description = f"{photo['name']} — {photo['lat']:.6f}, {photo['lon']:.6f}"
+            code = photo.get("code", "")
+            if code:
+                point.description = f"[{code}] {photo['name']} — {photo['lat']:.6f}, {photo['lon']:.6f}"
+            else:
+                point.description = f"{photo['name']} — {photo['lat']:.6f}, {photo['lon']:.6f}"
 
     return kml.kml()
