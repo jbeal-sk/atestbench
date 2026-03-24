@@ -113,16 +113,17 @@ class TestStampPdf:
         doc = fitz.open(stream=result, filetype="pdf")
         page = doc[0]
         text_dict = page.get_text("dict")
-        colors = set()
+        stamp_color = None
         for block in text_dict["blocks"]:
             if "lines" in block:
                 for line in block["lines"]:
                     for span in line["spans"]:
-                        if span["text"].strip():
-                            colors.add(span["color"])
+                        if span["text"].strip() == "A1":
+                            stamp_color = span["color"]
         doc.close()
+        assert stamp_color is not None, "Stamp text 'A1' not found"
         # 0xff0000 is red in PyMuPDF's integer color representation
-        assert 0xFF0000 in colors
+        assert stamp_color == 0xFF0000
 
 
 # ── stamp_image ──────────────────────────────────────────────────────
