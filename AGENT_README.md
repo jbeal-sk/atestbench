@@ -8,6 +8,7 @@ The existing Photo GPS to KML application is being extended with **Photo Map Sta
 
 ## Dependency Graph
 
+### Original Implementation (Phases 1-5)
 ```
 Phase 1 (parallel):  Dorothy + Betty
 Phase 2 (parallel):  Mildred + Helen
@@ -19,6 +20,12 @@ Dorothy ──→ Mildred
 Betty   ──→ Helen
 Dorothy + Mildred + Betty + Helen ──→ Ruth
 All ──→ Virginia ──→ Margaret
+```
+
+### Bug Fixes (Phases 6-7)
+```
+Phase 6 (parallel):  Doris + Frances
+Phase 7:             Evelyn
 ```
 
 ---
@@ -356,3 +363,159 @@ All ──→ Virginia ──→ Margaret
 - No regression in KML Export functionality
 - Stamped documents are valid and visually correct
 - Edge cases handled gracefully with user-friendly error messages
+
+---
+
+# Bug Fixes: New Agent Phases
+
+## Phase 6: Visual & Input Enhancement
+
+### Doris — Visual Enhancement (Red Stamp Color)
+
+**Namesake era:** Doris was the 9th most popular girls' name in the 1930s.
+
+**Scope:** Doris improves the visibility of stamped codes on complex PDFs by changing the text color from black to red. Red text on a white background provides better contrast and makes codes easier to identify.
+
+**Files:**
+| Action | File |
+|--------|------|
+| Modify | `document_stamper.py` |
+
+**Detailed Tasks:**
+
+1. **Change PDF stamp text color**
+   - Locate line 18: `_PDF_TEXT_COLOR = (0, 0, 0)` (black)
+   - Change to: `_PDF_TEXT_COLOR = (1, 0, 0)` (red)
+   - Note: PyMuPDF uses normalized RGB tuples where values are 0.0-1.0
+
+2. **Verify no other changes needed**
+   - The white background rectangle (`_PDF_BG_COLOR = (1, 1, 1)`) remains unchanged
+   - Red text on white background provides sufficient contrast
+
+**Dependencies:** None. This is an independent visual enhancement.
+
+**Acceptance Criteria:**
+- PDF stamps render in red text
+- Text remains on white background
+- Text is readable against varied PDF backgrounds
+- No changes to text positioning, size, or font
+- Stamped PDF files open correctly in PDF viewers
+
+---
+
+### Frances — Coordinate Format Parser
+
+**Namesake era:** Frances was the 10th most popular girls' name in the 1930s.
+
+**Scope:** Frances creates a flexible coordinate input handler that accepts multiple formats: decimal degrees (6-7 decimal places) and degrees-minutes-seconds (DMS) format. Users can enter coordinates in their preferred format, and the parser converts all to standardized decimal degrees.
+
+**Files:**
+| Action | File |
+|--------|------|
+| Create | `coordinate_parser.py` |
+| Modify | `app.py` |
+
+**Detailed Tasks:**
+
+1. **Create `coordinate_parser.py`** with the following functions:
+
+   a. **`parse_coordinate(coord_str: str, coord_type: str) -> float`**
+      - Accepts a coordinate string in multiple formats
+      - `coord_type`: "latitude" or "longitude"
+      - Supports formats:
+        - Decimal: `-74.04798056` or `74.04798056`
+        - DMS with degree symbol: `74° 2'53.73"W` or `40°42'51.93"N`
+        - DMS with colon separator: `74:02:53.73W` or `40:42:51.93N`
+        - DMS with spaces: `74 2 53.73 W` or `40 42 51.93 N`
+      - Returns: decimal degrees as a float
+      - Raises: `ValueError` with descriptive message for invalid input
+
+   b. **`dms_to_decimal(degrees: float, minutes: float, seconds: float, direction: str|None) -> float`**
+      - Converts degrees-minutes-seconds to decimal degrees
+      - `direction`: "N", "S", "E", "W", or None
+      - Applies sign correction: S and W are negative
+      - Returns: decimal degrees
+      - Raises: `ValueError` if values out of valid range
+
+   c. **`validate_parsed_coordinate(value: float, coord_type: str) -> bool`**
+      - Validates that the parsed coordinate is within valid ranges
+      - Latitude: -90 to 90
+      - Longitude: -180 to 180
+      - Returns: True if valid, raises ValueError otherwise
+
+2. **Modify `app.py` coordinate input section (lines 207-231)**
+   - Replace `st.number_input` widgets with `st.text_input` for more flexible input
+   - Add parser call after user input: `parsed_lat = parse_coordinate(lat_str, "latitude")`
+   - Display parsed decimal value back to user for confirmation
+   - Increase input step to 0.0000001 (7 decimal places) for decimal entry hint
+   - Add helpful input examples in the UI
+
+**Dependencies:** None for the parser itself; integrates with Ruth's existing `app.py`.
+
+**Acceptance Criteria:**
+- `parse_coordinate("-74.04798056", "longitude")` returns `-74.04798056`
+- `parse_coordinate("74° 2'53.73\"W", "longitude")` returns `-74.04798056` (approximately)
+- `parse_coordinate("40°42'51.93\"N", "latitude")` returns `40.71442500` (approximately)
+- `parse_coordinate("74:02:53.73W", "longitude")` returns `-74.04798056` (approximately)
+- Invalid formats raise `ValueError` with helpful message
+- Parsed coordinates display to user before confirmation
+- Out-of-range values (lat > 90, lon > 180) raise `ValueError`
+- All three corner input sets use the new parser
+
+---
+
+## Phase 7: PDF Orientation Validation
+
+### Evelyn — PDF Orientation Detection & Coordinate Validation
+
+**Namesake era:** Evelyn was the 1st most popular girls' name in the 1930s.
+
+**Scope:** Evelyn solves the critical bug where landscape PDFs are treated as portrait, causing stamps to be positioned incorrectly. She detects the PDF's orientation and validates that user-entered coordinates are compatible with that orientation, warning the user of any mismatches.
+
+**Files:**
+| Action | File |
+|--------|------|
+| Modify | `app.py` |
+| Modify | `affine_transform.py` |
+
+**Detailed Tasks:**
+
+1. **Add orientation detection to `app.py`** (after PDF upload)
+   - Get page dimensions from `page.rect.width` and `page.rect.height`
+   - Determine orientation: portrait if height > width, landscape if width > height
+   - Display to user: `"Detected orientation: LANDSCAPE (2400 × 1600 px)"` or similar
+   - Store orientation state for later validation
+
+2. **Add validation function to `affine_transform.py`**
+
+   a. **`validate_corner_orientation(corners: dict, pdf_is_landscape: bool) -> tuple[bool, str]`**
+      - Input: dict with all 4 corners as `{"TL": (lat, lon), "TR": ..., "BL": ..., "BR": ...}` and boolean for PDF orientation
+      - Compute geographic bounding box:
+        - `lat_range = max_lat - min_lat`
+        - `lon_range = max_lon - min_lon`
+      - Logic:
+        - If PDF is landscape (wide): expect `lon_range ≥ lat_range` (geo area also wider)
+        - If PDF is portrait (tall): expect `lat_range ≥ lon_range` (geo area also taller)
+      - Allow 20% tolerance for near-square documents
+      - Returns: `(is_valid, message)` where message explains the mismatch if invalid
+
+3. **Integrate validation into `app.py`** (after 4th corner computation)
+   - Call `validate_corner_orientation(all_corners, pdf_is_landscape)`
+   - If mismatch: display warning with `st.warning()`
+     - Example: `"⚠️ Orientation Mismatch: PDF is landscape but coordinates suggest portrait. Please verify corners."`
+   - Add checkbox: `"Proceed anyway?"`
+   - Only allow stamping if validation passes OR user confirms override
+
+**Dependencies:** Frances (coordinate parser must be in place for proper coordinate input validation).
+
+**Acceptance Criteria:**
+- Landscape PDF displays: `"Detected: LANDSCAPE (width > height)"`
+- Portrait PDF displays: `"Detected: PORTRAIT (height > width)"`
+- User sees detected orientation before entering coordinates
+- If landscape PDF + landscape coordinates (lon_range ≥ lat_range) → validation passes
+- If landscape PDF + portrait coordinates (lat_range > lon_range) → warning shown with override option
+- If portrait PDF + portrait coordinates (lat_range ≥ lon_range) → validation passes
+- If portrait PDF + landscape coordinates (lon_range > lat_range) → warning shown with override option
+- User can see the 4th computed corner and verify it looks correct
+- Stamps appear in correct locations on both portrait and landscape PDFs
+- No stamping happens if validation fails and user doesn't override
