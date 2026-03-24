@@ -13,8 +13,9 @@ import numpy as np
 def compute_fourth_corner(corners: dict, missing: str) -> tuple[float, float]:
     """Compute the missing corner of a parallelogram from 3 known corners.
 
-    Uses the parallelogram diagonal-bisection property: D = A + C - B,
-    where B is the corner diagonally opposite D.
+    Uses the parallelogram vector-addition property: D = A + C - B,
+    where B is the corner diagonally opposite D (opposite sides of a
+    parallelogram are parallel and equal).
 
     Args:
         corners: Dict with 3 of 4 keys ("TL", "TR", "BL", "BR"), each
@@ -178,11 +179,11 @@ def is_within_bounds(
 
     signs = []
     for i in range(n):
-        x1, y1 = corners[i]
-        x2, y2 = corners[(i + 1) % n]
+        lat1, lon1 = corners[i]
+        lat2, lon2 = corners[(i + 1) % n]
 
         # Cross product of edge vector with vector to the test point
-        cross = (x2 - x1) * (point[1] - y1) - (y2 - y1) * (point[0] - x1)
+        cross = (lat2 - lat1) * (point[1] - lon1) - (lon2 - lon1) * (point[0] - lat1)
 
         if abs(cross) > 1e-10:
             signs.append(cross > 0)

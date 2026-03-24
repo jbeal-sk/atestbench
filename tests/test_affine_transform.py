@@ -172,7 +172,7 @@ class TestGeoToPage:
 class TestIsWithinBounds:
     """Tests for is_within_bounds."""
 
-    @pytest.fixture()
+    @pytest.fixture
     def rectangle_corners(self):
         """A simple axis-aligned rectangle in order (CW)."""
         return [(0, 0), (0, 10), (10, 10), (10, 0)]
