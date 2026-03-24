@@ -15,6 +15,7 @@ from affine_transform import (
     is_within_bounds,
 )
 from document_stamper import stamp_document
+from coordinate_parser import parse_coordinate
 
 st.set_page_config(page_title="Photo GPS → Google Earth KML", page_icon="🌍")
 
@@ -205,29 +206,32 @@ with tab_photomap:
     corner_labels = {"TL": "Top-Left", "TR": "Top-Right", "BL": "Bottom-Left", "BR": "Bottom-Right"}
 
     corners_input = {}
+    st.caption(
+        "Enter coordinates as **decimal degrees** (e.g. `40.714425`, `-74.047981`) "
+        "or **DMS** (e.g. `40°42'51.93\"N`, `74:02:53.73W`, `74 2 53.73 W`)."
+    )
     for key in provided_keys:
         label = corner_labels[key]
         col1, col2 = st.columns(2)
         with col1:
-            lat = st.number_input(
+            lat_str = st.text_input(
                 f"{label} Latitude",
-                min_value=-90.0,
-                max_value=90.0,
-                value=0.0,
-                step=0.000001,
-                format="%.6f",
+                value="0.0",
                 key=f"lat_{key}",
             )
         with col2:
-            lon = st.number_input(
+            lon_str = st.text_input(
                 f"{label} Longitude",
-                min_value=-180.0,
-                max_value=180.0,
-                value=0.0,
-                step=0.000001,
-                format="%.6f",
+                value="0.0",
                 key=f"lon_{key}",
             )
+        try:
+            lat = parse_coordinate(lat_str, "latitude")
+            lon = parse_coordinate(lon_str, "longitude")
+            st.caption(f"↳ Parsed: Lat **{lat:.7f}**, Lon **{lon:.7f}**")
+        except ValueError as e:
+            st.error(f"{label}: {e}")
+            st.stop()
         corners_input[key] = (lat, lon)
 
     # Compute 4th corner
