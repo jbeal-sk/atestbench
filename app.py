@@ -14,7 +14,7 @@ from affine_transform import (
     geo_to_page,
     is_within_bounds,
 )
-from document_stamper import stamp_document
+from document_stamper import stamp_document, StampStyle
 from coordinate_parser import parse_coordinate
 
 st.set_page_config(page_title="Photo GPS → Google Earth KML", page_icon="🌍")
@@ -245,6 +245,29 @@ with tab_photomap:
         st.error(f"Could not compute 4th corner: {e}")
         st.stop()
 
+    # ── Stamp Appearance (sidebar) ───────────────────────────────────
+    with st.sidebar:
+        st.subheader("🎨 Stamp Appearance")
+        stamp_fontsize = st.slider("Font size", 8, 36, 12)
+        stamp_text_color = st.color_picker("Text color", "#FF0000")
+        stamp_bg_color = st.color_picker("Background color", "#FFFFFF")
+        stamp_bg_opacity = st.slider("Background opacity", 0.0, 1.0, 1.0, 0.05)
+        stamp_padding = st.slider("Padding", 0, 10, 2)
+
+    def _hex_to_normalized(hex_color: str) -> tuple:
+        """Convert '#RRGGBB' to (r, g, b) with values 0.0–1.0."""
+        hex_color = hex_color.lstrip("#")
+        r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+        return (r / 255.0, g / 255.0, b / 255.0)
+
+    stamp_style = StampStyle(
+        fontsize=stamp_fontsize,
+        text_color=_hex_to_normalized(stamp_text_color),
+        bg_color=_hex_to_normalized(stamp_bg_color),
+        bg_opacity=stamp_bg_opacity,
+        padding=stamp_padding,
+    )
+
     # ── Step 4: Stamp & Download ─────────────────────────────────────
     st.subheader("🖊️ Stamp Document")
 
@@ -324,7 +347,7 @@ with tab_photomap:
         # Stamp the document
         try:
             output_bytes, output_filename = stamp_document(
-                base_bytes, base_doc.name, stamps
+                base_bytes, base_doc.name, stamps, style=stamp_style
             )
         except ValueError as e:
             st.error(f"Stamping failed: {e}")

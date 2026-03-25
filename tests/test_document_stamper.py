@@ -6,16 +6,18 @@ import fitz  # PyMuPDF
 import pytest
 from PIL import Image
 
-from document_stamper import stamp_document, stamp_image, stamp_pdf
+from document_stamper import StampStyle, stamp_document, stamp_image, stamp_pdf
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
 
-def _make_pdf_bytes(width=612, height=792):
+def _make_pdf_bytes(width=612, height=792, rotation=0):
     """Create a minimal single-page PDF in memory."""
     doc = fitz.open()
-    doc.new_page(width=width, height=height)
+    page = doc.new_page(width=width, height=height)
+    if rotation:
+        page.set_rotation(rotation)
     data = doc.tobytes()
     doc.close()
     return data
@@ -275,3 +277,173 @@ class TestStampDocument:
         assert result_name == "photo_stamped.png"
         output_img = Image.open(io.BytesIO(result_bytes))
         assert output_img.size == (200, 200)
+
+
+# ── PDF Rotation ────────────────────────────────────────────────────
+
+
+class TestStampPdfRotation:
+    """Tests for stamp_pdf with rotated pages."""
+
+    def test_rotation_90_text_present(self):
+        """Stamp text is present on a page with /Rotate=90."""
+        pdf = _make_pdf_bytes(rotation=90)
+        stamps = [{"code": "R90", "x": 100.0, "y": 100.0}]
+        result = stamp_pdf(pdf, stamps)
+        doc = fitz.open(stream=result, filetype="pdf")
+        text = doc[0].get_text()
+        doc.close()
+        assert "R90" in text
+
+    def test_rotation_180_text_present(self):
+        """Stamp text is present on a page with /Rotate=180."""
+        pdf = _make_pdf_bytes(rotation=180)
+        stamps = [{"code": "R180", "x": 100.0, "y": 100.0}]
+        result = stamp_pdf(pdf, stamps)
+        doc = fitz.open(stream=result, filetype="pdf")
+        text = doc[0].get_text()
+        doc.close()
+        assert "R180" in text
+
+    def test_rotation_270_text_present(self):
+        """Stamp text is present on a page with /Rotate=270."""
+        pdf = _make_pdf_bytes(rotation=270)
+        stamps = [{"code": "R270", "x": 100.0, "y": 100.0}]
+        result = stamp_pdf(pdf, stamps)
+        doc = fitz.open(stream=result, filetype="pdf")
+        text = doc[0].get_text()
+        doc.close()
+        assert "R270" in text
+
+    def test_rotation_0_unchanged(self):
+        """Rotation=0 produces identical behavior to default."""
+        pdf = _make_pdf_bytes(rotation=0)
+        stamps = [{"code": "X1", "x": 100.0, "y": 100.0}]
+        result = stamp_pdf(pdf, stamps)
+        doc = fitz.open(stream=result, filetype="pdf")
+        text = doc[0].get_text()
+        doc.close()
+        assert "X1" in text
+
+    def test_rotation_90_stamp_color_is_red(self):
+        """Stamp text on a rotated page is still red."""
+        pdf = _make_pdf_bytes(rotation=90)
+        stamps = [{"code": "A1", "x": 100.0, "y": 100.0}]
+        result = stamp_pdf(pdf, stamps)
+        doc = fitz.open(stream=result, filetype="pdf")
+        page = doc[0]
+        text_dict = page.get_text("dict")
+        stamp_color = None
+        for block in text_dict["blocks"]:
+            if "lines" in block:
+                for line in block["lines"]:
+                    for span in line["spans"]:
+                        if span["text"].strip() == "A1":
+                            stamp_color = span["color"]
+        doc.close()
+        assert stamp_color is not None, "Stamp text 'A1' not found"
+        assert stamp_color == 0xFF0000
+
+    def test_rotation_90_clamping(self):
+        """Stamps near edges are clamped on a rotated page."""
+        pdf = _make_pdf_bytes(width=200, height=200, rotation=90)
+        stamps = [{"code": "CL", "x": 999.0, "y": 999.0}]
+        result = stamp_pdf(pdf, stamps)
+        doc = fitz.open(stream=result, filetype="pdf")
+        text = doc[0].get_text()
+        doc.close()
+        assert "CL" in text
+
+
+# ── StampStyle ──────────────────────────────────────────────────────
+
+
+class TestStampStyle:
+    """Tests for configurable stamp appearance."""
+
+    def test_default_style_pdf_is_red(self):
+        """Default style produces red text on PDF."""
+        pdf = _make_pdf_bytes()
+        stamps = [{"code": "A1", "x": 100.0, "y": 100.0}]
+        result = stamp_pdf(pdf, stamps)
+        doc = fitz.open(stream=result, filetype="pdf")
+        text_dict = doc[0].get_text("dict")
+        stamp_color = None
+        for block in text_dict["blocks"]:
+            if "lines" in block:
+                for line in block["lines"]:
+                    for span in line["spans"]:
+                        if span["text"].strip() == "A1":
+                            stamp_color = span["color"]
+        doc.close()
+        assert stamp_color == 0xFF0000
+
+    def test_custom_style_pdf_color(self):
+        """Custom blue text color is applied to PDF stamps."""
+        style = StampStyle(text_color=(0.0, 0.0, 1.0))
+        pdf = _make_pdf_bytes()
+        stamps = [{"code": "B1", "x": 100.0, "y": 100.0}]
+        result = stamp_pdf(pdf, stamps, style=style)
+        doc = fitz.open(stream=result, filetype="pdf")
+        text_dict = doc[0].get_text("dict")
+        stamp_color = None
+        for block in text_dict["blocks"]:
+            if "lines" in block:
+                for line in block["lines"]:
+                    for span in line["spans"]:
+                        if span["text"].strip() == "B1":
+                            stamp_color = span["color"]
+        doc.close()
+        assert stamp_color == 0x0000FF
+
+    def test_custom_style_pdf_fontsize(self):
+        """Custom font size is applied to PDF stamps."""
+        style = StampStyle(fontsize=24)
+        pdf = _make_pdf_bytes()
+        stamps = [{"code": "F1", "x": 100.0, "y": 100.0}]
+        result = stamp_pdf(pdf, stamps, style=style)
+        doc = fitz.open(stream=result, filetype="pdf")
+        text_dict = doc[0].get_text("dict")
+        found_size = None
+        for block in text_dict["blocks"]:
+            if "lines" in block:
+                for line in block["lines"]:
+                    for span in line["spans"]:
+                        if span["text"].strip() == "F1":
+                            found_size = span["size"]
+        doc.close()
+        assert found_size is not None
+        assert abs(found_size - 24) < 1
+
+    def test_custom_style_image_returns_valid(self):
+        """Custom style on image stamping produces valid output."""
+        style = StampStyle(
+            fontsize=20,
+            text_color=(0.0, 1.0, 0.0),
+            bg_color=(0.0, 0.0, 0.0),
+            bg_opacity=0.5,
+            padding=5,
+        )
+        img = _make_image_bytes()
+        stamps = [{"code": "S1", "x": 50.0, "y": 50.0}]
+        result = stamp_image(img, stamps, style=style)
+        output_img = Image.open(io.BytesIO(result))
+        assert output_img.size == (200, 200)
+
+    def test_style_passed_through_stamp_document(self):
+        """StampStyle is passed through stamp_document to the underlying stamper."""
+        style = StampStyle(text_color=(0.0, 0.0, 1.0))
+        pdf = _make_pdf_bytes()
+        stamps = [{"code": "D1", "x": 100.0, "y": 100.0}]
+        result_bytes, _ = stamp_document(pdf, "test.pdf", stamps, style=style)
+        doc = fitz.open(stream=result_bytes, filetype="pdf")
+        text_dict = doc[0].get_text("dict")
+        stamp_color = None
+        for block in text_dict["blocks"]:
+            if "lines" in block:
+                for line in block["lines"]:
+                    for span in line["spans"]:
+                        if span["text"].strip() == "D1":
+                            stamp_color = span["color"]
+        doc.close()
+        assert stamp_color == 0x0000FF
